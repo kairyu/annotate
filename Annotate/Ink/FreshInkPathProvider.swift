@@ -113,7 +113,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
                 plans.append(.init(layers: [secondary], start: Tokens.secondPassDelay, duration: 0.42, curve: Tokens.circleMotion.curve))
             }
             if let label {
-                let layout = calloutLayout(for: label, preferredContentWidth: CGFloat(paths.paddedRect.width), on: screen)
+                let layout = calloutLayout(for: label, preferredContentWidth: CGFloat(paths.paddedRect.width), on: screen, style: annotation.style)
                 let anchor = CalloutAnchor.box(protocolRect(localRect(paths.paddedRect, on: screen)))
                 let placement = place(anchor, size: layout.size, on: screen, within: annotation.within, obstacles: obstacles)
                 root.calloutAnchor = anchor
@@ -192,7 +192,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
                 plans.append(.init(layers: [secondary], start: Tokens.secondPassDelay, duration: arrowDuration, curve: Tokens.arrowShaftMotion.curve))
             }
             if let label {
-                let layout = calloutLayout(for: label, preferredContentWidth: 140, on: screen)
+                let layout = calloutLayout(for: label, preferredContentWidth: 140, on: screen, style: annotation.style)
                 let anchor = CalloutAnchor.shaft(from: protocolPoint(localPoint(from.cgPoint, on: screen)),
                                                  to: protocolPoint(localPoint(to.cgPoint, on: screen)))
                 let placement = place(anchor, size: layout.size, on: screen, within: annotation.within, obstacles: obstacles)
@@ -208,7 +208,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
                 textStart = Tokens.arrowShaftMotion.duration * 0.6
             }
         case .text(let point, let text):
-            let layout = calloutLayout(for: text, preferredContentWidth: 160, on: screen)
+            let layout = calloutLayout(for: text, preferredContentWidth: 160, on: screen, style: annotation.style)
             let anchor = CalloutAnchor.point(protocolPoint(localPoint(point.cgPoint, on: screen)))
             let placement = place(anchor, size: layout.size, on: screen, within: annotation.within, obstacles: obstacles)
             root.calloutAnchor = anchor
@@ -875,7 +875,11 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         // ignoresMouseEvents routes events past the window entirely,
         // regardless of what subviews exist in its view tree.
         let caption = style == .caption
-        let radius = min(frame.height / 2, CGFloat(Tokens.textMetrics.cornerRadius))
+        // The style's own metrics: a caption is a different size, padding and corner
+        // from a card, and a radius of zero is the honest answer when there is no
+        // plate to round.
+        let metrics = Tokens.metrics(for: style)
+        let radius = min(frame.height / 2, CGFloat(metrics.cornerRadius))
         let effectView = NSVisualEffectView(frame: frame)
         effectView.material = .hudWindow
         effectView.blendingMode = .behindWindow
@@ -925,7 +929,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         }
         host.addSubview(effectView)
 
-        let font = roundedFont()
+        let font = roundedFont(for: style)
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         paragraph.lineBreakMode = .byWordWrapping
@@ -938,13 +942,13 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         // the text layer is hosted inside the material card's layer, not the
         // annotation's window-space coordinate system.
         let textFrame = CGRect(origin: .zero, size: frame.size)
-            .insetBy(dx: CGFloat(Tokens.textMetrics.horizontalPadding), dy: CGFloat(Tokens.textMetrics.verticalPadding))
+            .insetBy(dx: CGFloat(metrics.horizontalPadding), dy: CGFloat(metrics.verticalPadding))
 
         func textLayer(_ attributes: [NSAttributedString.Key: Any]) -> CATextLayer {
             let layer = CATextLayer()
             layer.string = NSAttributedString(string: text, attributes: attributes.merging([
                 .font: font,
-                .kern: Tokens.textMetrics.tracking,
+                .kern: metrics.tracking,
                 .paragraphStyle: paragraph,
             ]) { mine, _ in mine })
             layer.font = font
@@ -1201,10 +1205,11 @@ final class FreshInkPathProvider: AnnotationPathProviding {
     /// Growing wide before growing tall is deliberate: a tall narrow column of
     /// two words per line is harder to read at a glance than a wider block, and
     /// a glance is all a callout ever gets.
-    private func calloutLayout(for text: String, preferredContentWidth: CGFloat, on screen: ScreenDescriptor) -> (text: String, size: CGSize) {
-        let font = roundedFont()
-        let horizontalPadding = CGFloat(Tokens.textMetrics.horizontalPadding)
-        let verticalPadding = CGFloat(Tokens.textMetrics.verticalPadding)
+    private func calloutLayout(for text: String, preferredContentWidth: CGFloat, on screen: ScreenDescriptor, style: CalloutStyle = .card) -> (text: String, size: CGSize) {
+        let metrics = Tokens.metrics(for: style)
+        let font = roundedFont(for: style)
+        let horizontalPadding = CGFloat(metrics.horizontalPadding)
+        let verticalPadding = CGFloat(metrics.verticalPadding)
         let inset = CGFloat(Tokens.calloutScreenInset)
 
         // The hard ceiling: the plate must fit the screen with its inset intact.
@@ -1214,9 +1219,9 @@ final class FreshInkPathProvider: AnnotationPathProviding {
 
         // Preferred width first — a label that fits the mark it belongs to reads
         // as attached to it. Widen only when the text needs the room.
-        let preferred = min(CGFloat(Tokens.textMetrics.maxWidth), max(52 + 2 * horizontalPadding, preferredContentWidth))
+        let preferred = min(CGFloat(metrics.maxWidth), max(52 + 2 * horizontalPadding, preferredContentWidth))
         var contentWidth = min(preferred, plateWidthLimit) - 2 * horizontalPadding
-        var bounds = textBounds(text, width: contentWidth, font: font)
+        var bounds = textBounds(text, width: contentWidth, font: font, tracking: metrics.tracking)
 
         /// The narrowest width at or below `ceiling` that fits the text into
         /// `heightBudget`, or `ceiling` if even that is not enough.
@@ -1225,7 +1230,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
             var low = contentWidth, high = ceiling
             for _ in 0..<14 where high - low > 1 {
                 let mid = (low + high) / 2
-                if textBounds(text, width: mid, font: font).height <= heightBudget { high = mid } else { low = mid }
+                if textBounds(text, width: mid, font: font, tracking: metrics.tracking).height <= heightBudget { high = mid } else { low = mid }
             }
             return high
         }
@@ -1237,8 +1242,8 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         // 1. Past a comfortable few lines, widen toward the design's own maxWidth.
         let comfortable = lineHeight(for: font) * CGFloat(Tokens.calloutComfortableLines)
         if bounds.height > comfortable {
-            contentWidth = widthFitting(comfortable, upTo: min(plateWidthLimit, CGFloat(Tokens.textMetrics.maxWidth)) - 2 * horizontalPadding)
-            bounds = textBounds(text, width: contentWidth, font: font)
+            contentWidth = widthFitting(comfortable, upTo: min(plateWidthLimit, CGFloat(metrics.maxWidth)) - 2 * horizontalPadding)
+            bounds = textBounds(text, width: contentWidth, font: font, tracking: metrics.tracking)
         }
 
         // 2. Only if it would now overrun the SCREEN does it widen past maxWidth
@@ -1247,7 +1252,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         let contentHeightLimit = plateHeightLimit - 2 * verticalPadding
         if bounds.height > contentHeightLimit {
             contentWidth = widthFitting(contentHeightLimit, upTo: plateWidthLimit - 2 * horizontalPadding)
-            bounds = textBounds(text, width: contentWidth, font: font)
+            bounds = textBounds(text, width: contentWidth, font: font, tracking: metrics.tracking)
         }
 
         // Round to nearest: boundingRect returns a hair over one line height, so
@@ -1259,13 +1264,15 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         return (text, CGSize(width: width, height: height))
     }
 
-    private func textBounds(_ text: String, width: CGFloat, font: NSFont) -> CGRect {
+    /// `tracking` is passed rather than read: measuring has to use the same kerning
+    /// the layer will draw with, and that now depends on the callout's style.
+    private func textBounds(_ text: String, width: CGFloat, font: NSFont, tracking: Double) -> CGRect {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byWordWrapping
         return (text as NSString).boundingRect(
             with: CGSize(width: width, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: font, .kern: Tokens.textMetrics.tracking, .paragraphStyle: paragraph]
+            attributes: [.font: font, .kern: tracking, .paragraphStyle: paragraph]
         )
     }
 
@@ -1408,8 +1415,10 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         if let mask = layer.mask { removeAnimationsRecursively(mask) }
     }
 
-    private func roundedFont() -> NSFont {
-        let fallback = NSFont.systemFont(ofSize: Tokens.textMetrics.size, weight: .semibold)
+    /// The callout face, at the size its style is read at — see `Tokens.captionMetrics`
+    /// for why a caption is not a card at a different colour.
+    private func roundedFont(for style: CalloutStyle = .card) -> NSFont {
+        let fallback = NSFont.systemFont(ofSize: Tokens.metrics(for: style).size, weight: .semibold)
         guard let descriptor = fallback.fontDescriptor.withDesign(.rounded) else { return fallback }
         return NSFont(descriptor: descriptor, size: fallback.pointSize) ?? fallback
     }

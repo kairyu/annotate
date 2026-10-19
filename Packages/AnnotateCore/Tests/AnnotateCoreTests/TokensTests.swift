@@ -241,6 +241,31 @@ func textMetricsMatchTheDesignTable() {
     #expect(Tokens.textMetrics.maxWidth == 260)
 }
 
+@Test("a caption is read at narration size, not chip size")
+func captionMetricsAreNarrationSized() {
+    // A card is read beside the control it labels, while the screen is still. A caption is read *while
+    // something else moves*, and later, at whatever size the video is played back at — so it is larger, and
+    // its line is long enough that one sentence of narration stays one line. 15pt/260pt was measured
+    // reading as secondary against the app being demonstrated, and wrapping a single line onto three.
+    #expect(Tokens.captionMetrics.size > Tokens.textMetrics.size)
+    #expect(Tokens.captionMetrics.maxWidth > Tokens.textMetrics.maxWidth)
+    // No plate, so nothing to round.
+    #expect(Tokens.captionMetrics.cornerRadius == 0)
+    // The casing is a percentage of the point size, so a larger caption carries a heavier outline for free —
+    // which is the other half of why it survives a light background.
+    #expect(Tokens.captionStrokeWidth > 0)
+}
+
+@Test("every style resolves to its own metrics", arguments: [
+    (CalloutStyle.card, Tokens.textMetrics),
+    (CalloutStyle.caption, Tokens.captionMetrics),
+])
+func everyStyleResolvesToItsOwnMetrics(_ sample: (CalloutStyle, TextMetrics)) {
+    // One lookup, so no call site has to know which of the two it is holding — and a new style cannot be
+    // added without deciding what it is read at.
+    #expect(Tokens.metrics(for: sample.0) == sample.1)
+}
+
 @Test("hover / press transparency tokens sit in the yield range")
 func hoverPressTransparencyTokensSitInTheYieldRange() {
     // Hover dims but keeps the annotation legible; press hides it entirely.
