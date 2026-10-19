@@ -426,6 +426,30 @@ public enum Tokens {
     public static let calloutTintAlpha = 0.22
     public static let calloutTintBorderAlpha = 0.55
 
+    // `CalloutStyle.caption`: NO plate — words burned straight onto the screen,
+    // the way a caption is burned into a frame of video.
+    //
+    // The whole legibility budget therefore sits in the CASING: an outline in the
+    // text's own casing colour, plus a shadow of the same colour behind it. That
+    // is the identical trick the pen strokes use (DESIGN.md §2), and it is what
+    // lets one caption survive a white panel, a dark terminal and a saturated
+    // thumbnail without a surface of its own.
+    //
+    // The outline has to be a SEPARATE text layer behind the fill. Measured
+    // 2026-10-19: `NSAttributedString.strokeWidth` of -12 on one layer — AppKit's
+    // documented "fill and stroke" — rendered the phrase with *zero* fill pixels
+    // left, because Core Text strokes centred on the glyph outline AFTER filling
+    // and a stroke that heavy simply covers the stems. CSS has `paint-order:
+    // stroke fill` for exactly this; Core Animation has no equivalent, so the
+    // order is expressed as two layers.
+    //
+    // `strokeWidth` is a PERCENTAGE of the font's point size, not a width in
+    // points, so this one number holds at any text size.
+    public static let captionStrokeWidth = 10.0
+    public static let captionShadowOpacity = 0.75
+    public static let captionShadowRadius = 3.0
+    public static let captionShadowOffsetY = -1.0
+
     public static let circlePaddingFraction = 0.12
     public static let circleMinimumPadding = 8.0
     public static let circlePointDiameter = 56.0

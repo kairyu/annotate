@@ -27,7 +27,7 @@ here.
 | [0004](0004-seeded-geometry-pinned-by-exact-goldens.md) | Geometry is seeded and deterministic; generator draw count and order are a pixel contract | Accepted |
 | [0005](0005-ink-is-a-variable-width-ribbon-fill.md) | Ink is a variable-width ribbon fill revealed by a stroked mask | Accepted |
 | [0006](0006-pointer-yield-via-a-passive-global-monitor.md) | Annotations yield to the pointer via a passive global monitor, never by becoming interactive | Accepted |
-| [0007](0007-callouts-use-a-real-macos-material.md) | Text callouts use a real macOS material — the one place the overlay blurs | Accepted |
+| [0007](0007-callouts-use-a-real-macos-material.md) | Text callouts use a real macOS material — the one place the overlay blurs | Accepted, amended by [0018](0018-a-callout-may-have-no-plate.md) |
 | [0008](0008-hand-wander-is-one-correlated-signal.md) | The hand wander is one low-frequency correlated signal, not per-point noise | Accepted |
 | [0009](0009-one-pen-spine-of-free-functions.md) | One shared pen spine, as free functions rather than a protocol or base class | Accepted |
 | [0010](0010-wipe-is-planned-by-a-k-centre-cover.md) | The clear-all wipe is planned by a k-centre cover, so coverage is an invariant | Accepted |
@@ -38,6 +38,7 @@ here.
 | [0015](0015-no-bundled-handwriting-font.md) | Callout text uses SF Rounded; no bundled handwriting font | Accepted |
 | [0016](0016-overlay-sits-just-above-the-status-bar.md) | The overlay sits at `statusBar + 1`, so an open menu is never covered | Accepted |
 | [0017](0017-the-control-socket-verifies-who-is-calling.md) | The socket verifies its peer and that peer's agent host, so `locate` cannot be borrowed | Accepted |
+| [0018](0018-a-callout-may-have-no-plate.md) | A callout may have no plate, when its words are being recorded — amends [0007](0007-callouts-use-a-real-macos-material.md) | Accepted |
 
 ## Adding one
 

@@ -45,8 +45,10 @@ Because we draw over arbitrary content — white docs, black terminals,
 photographic wallpapers — legibility can never depend on what happens to be
 underneath. The overlay is click-through and cannot sample or blend with the
 screen behind it; that constraint is embraced everywhere below (no blend modes,
-no adaptive sampling). The one exception is the text callout, which uses a real
-macOS material and therefore *is* allowed to blur what is behind it (§6).
+no adaptive sampling). The one exception is the text callout's `card`, which uses
+a real macOS material and therefore *is* allowed to blur what is behind it (§6).
+A `caption` takes no exception: it samples nothing and carries its own contrast,
+like every other primitive.
 
 ---
 
@@ -100,7 +102,11 @@ shadow only — opacity **0.14**, radius **3**, offset (0, 1), with its silhouet
 trimmed inward by each end's dry-fringe falloff so the shadow can never reprint
 a hard rectangular tip the raster already erased.
 
-Text callouts get their material card (§6) instead of any casing.
+Text callouts get their material card (§6) instead of any casing — unless they
+have no card. A `caption` (§6, [ADR 0018](adr/0018-a-callout-may-have-no-plate.md))
+is the one place the casing is applied to TYPE rather than to a stroke: an
+outline in the casing colour behind the glyphs, carrying the same job the halo
+does for a pen line.
 
 **Binary check:** a loop over pure white and over pure black must both show a
 clearly bounded stroke — over white the ink's own darkness defines it, over
@@ -271,15 +277,21 @@ animated case.
 *Why the plate is a real macOS material:*
 [ADR 0007](adr/0007-callouts-use-a-real-macos-material.md). *Why labels grow to
 fit instead of truncating:*
-[ADR 0012](adr/0012-callouts-grow-to-fit-bounded-by-the-screen.md).
+[ADR 0012](adr/0012-callouts-grow-to-fit-bounded-by-the-screen.md). *Why a
+callout may have no plate at all:*
+[ADR 0018](adr/0018-a-callout-may-have-no-plate.md).
 
 | Property | Value |
 |---|---|
 | Typeface | **SF Rounded** (system font with `.rounded` design). No bundled handwriting font — see [ADR 0015](adr/0015-no-bundled-handwriting-font.md). |
 | Size / weight | **15 pt Semibold**, tracking **+0.2** (`textMetrics.size`, `.tracking`). Single size; no API size knob in v1. |
-| Colour | Chalk `#F4F2EF` at 100% (`Tokens.chalk`), always — the card guarantees contrast. |
+| Colour | Chalk `#F4F2EF` at 100% (`Tokens.chalk`) for a **card** — the plate carries the colour, and a 22% tint can never drift far enough from the material's own grey for a fixed label colour to fail. For a **caption** there is no plate, so the colour *is* the words. |
+| Style (anything carrying words: `annotate_text`, and a **labelled** circle or arrow) | **`card`** (default) is the plate described in this table. **`caption`** has **no plate at all** — for narration burned into a screen recording, where a plate reads as a piece of UI that happens to contain words. The material is removed with a transparent `maskImage` (the view itself stays: its frame is the hit area, the hard obstacle, the wiped region and what `relayoutCallout` moves), and legibility moves entirely into the **casing**: an outline text layer behind the fill at `strokeWidth` **10%** of font size (`captionStrokeWidth`), plus a shadow of the same casing colour at **0.75** / radius **3** / offset **(0, −1)**. `ink` is **pinned to its dark-mode value** — near-white words with a dark casing — because the role flips by appearance to stay contrasty against ink strokes, which made the same call record differently on two Macs. Geometry, growth and placement are unchanged. |
+| Why the outline is a second layer | Core Text strokes **after** filling, so one layer carrying both loses the glyph: measured 2026-10-19, `strokeWidth: -12` (AppKit's documented "fill and stroke") rendered the phrase with *zero* fill pixels left. CSS solves this with `paint-order: stroke fill`; Core Animation has no equivalent, so the paint order is expressed as stroke-only behind fill-only. |
+| A caption label stays tied to its mark | A card ties label to mark with a tint of the mark's colour; a caption has no plate to tint, so it paints the **words** that colour instead. For the same reason `ink` is **not** pinned on a labelled mark, only on a standalone caption: the loop's own ink flips with the appearance, and a pinned label on an unpinned loop is a label that does not match its mark. `color` also keeps its `accent` default there — it is the loop's ink, not merely its words. |
+| When a caption is the wrong choice | **A wrapped paragraph.** RESEARCH.md §(b) rejected the per-glyph outline for callouts on purpose — *"chip beats per-glyph outline for paragraph legibility and looks native"* — and that finding stands; `caption` exists because a plate cannot be narration, not because the outline is better. One line of narration: `caption`. A sentence teaching a step: `card`. |
 | Background — **a real macOS material card** | An `NSVisualEffectView` with material **`.hudWindow`**, blending mode **`.behindWindow`**, state pinned `.active` (the overlay never becomes key). It genuinely blurs the live desktop content behind the transparent overlay panel; the WindowServer composites it, so idle CPU stays 0%. Because vibrancy is tied to a real view, the card is hosted as a **subview of the overlay's contentView**, not as a `CALayer` inside the annotation's layer tree — it is animated and torn down explicitly alongside the rest of the annotation. Click-through is unaffected: the owning window's `ignoresMouseEvents` routes events past the window entirely. |
-| Card chrome | Corner radius `min(height / 2, 14)`; hairline glass edge — border **0.75 pt** of Chalk at **16%**; shadow black **0.22**, radius **8**, offset **(0, 2)**. Enough for the card to read as a distinct object over busy content without becoming a UI chip. |
+| Card chrome | Corner radius `min(height / 2, 14)`; hairline glass edge — border **0.75 pt** of Chalk at **16%**. Enough for the card to read as a distinct object over busy content without becoming a UI chip. The code also sets a black **0.22** / radius **8** / offset **(0, 2)** shadow, which **never renders** — measured 2026-10-19: `NSVisualEffectView` resets `shadowOpacity` to 0 as the view enters the view tree, and set after that it is clipped away by the `masksToBounds` the corner radius needs. The border is the plate's only edge. |
 | Sizing | Padding **10 pt** horizontal, **6 pt** vertical (`textMetrics.horizontalPadding` / `.verticalPadding`); text centred, word-wrapped. |
 | Width / growth | Preferred content width **260 pt** (`textMetrics.maxWidth`), or the mark's own width when that is narrower (a circle passes its padded rect, an arrow 140 pt, a standalone callout 160 pt). Past **3 comfortable lines** (`calloutComfortableLines`) the card **widens** rather than stacking — a narrow column of three words is hard to read at the glance a callout gets. **Never truncated**: the only hard ceiling is the screen itself, minus the inset below. |
 | Screen inset | **24 pt** (`calloutScreenInset`) — the same budget is used both for sizing and for the final clamp, so growth and placement can never disagree about how much room there is. |

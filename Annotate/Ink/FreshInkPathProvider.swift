@@ -120,7 +120,11 @@ final class FreshInkPathProvider: AnnotationPathProviding {
                 root.calloutSize = layout.size
                 root.calloutWithin = annotation.within
                 _ = leaderLayers(for: placement, color: roleColor, seed: seed, on: screen, to: root)
-                let callout = makeCallout(layout.text, frame: cgRect(placement.frame), color: roleColor, seed: seed, scale: screen.scale, host: host)
+                // `roleColor`, NOT the pinned caption colour: a label belongs to
+                // its mark, and the mark's own `ink` flips with the appearance.
+                // Pinning only the label would leave a dark loop carrying
+                // near-white words — the exact tie the card's tint exists to make.
+                let callout = makeCallout(layout.text, frame: cgRect(placement.frame), color: roleColor, style: annotation.style, seed: seed, scale: screen.scale, host: host)
                 root.calloutEffectView = callout.effectView
                 root.calloutLayer = callout.layer
                 root.calloutTextLayer = callout.textLayer
@@ -196,7 +200,8 @@ final class FreshInkPathProvider: AnnotationPathProviding {
                 root.calloutSize = layout.size
                 root.calloutWithin = annotation.within
                 _ = leaderLayers(for: placement, color: roleColor, seed: seed, on: screen, to: root)
-                let callout = makeCallout(layout.text, frame: cgRect(placement.frame), color: roleColor, seed: seed, scale: screen.scale, host: host)
+                // See the circle's label above for why this is `roleColor`.
+                let callout = makeCallout(layout.text, frame: cgRect(placement.frame), color: roleColor, style: annotation.style, seed: seed, scale: screen.scale, host: host)
                 root.calloutEffectView = callout.effectView
                 root.calloutLayer = callout.layer
                 root.calloutTextLayer = callout.textLayer
@@ -209,8 +214,12 @@ final class FreshInkPathProvider: AnnotationPathProviding {
             root.calloutAnchor = anchor
             root.calloutSize = layout.size
             root.calloutWithin = annotation.within
-            _ = leaderLayers(for: placement, color: roleColor, seed: seed, on: screen, to: root)
-            let callout = makeCallout(layout.text, frame: cgRect(placement.frame), color: roleColor, seed: seed, scale: screen.scale, host: host)
+            // The callout's own colour, not the stroke colour: a caption refuses
+            // the appearance flip, and the leader is drawn in the same colour so
+            // a caption pushed off its point stays one object.
+            let calloutColor = calloutColor(for: annotation)
+            _ = leaderLayers(for: placement, color: calloutColor, seed: seed, on: screen, to: root)
+            let callout = makeCallout(layout.text, frame: cgRect(placement.frame), color: calloutColor, style: annotation.style, seed: seed, scale: screen.scale, host: host)
             root.calloutEffectView = callout.effectView
             root.calloutLayer = callout.layer
             root.calloutTextLayer = callout.textLayer
@@ -855,7 +864,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         return layer
     }
 
-    private func makeCallout(_ text: String, frame: CGRect, color: RoleColor, seed: UInt64, scale: Double, host: NSView) -> Callout {
+    private func makeCallout(_ text: String, frame: CGRect, color: RoleColor, style: CalloutStyle, seed: UInt64, scale: Double, host: NSView) -> Callout {
         // A REAL macOS material card, not a hand-rolled ink wash: an
         // NSVisualEffectView (.hudWindow, .behindWindow) hosted as a subview
         // of the overlay's contentView. Confirmed in the material spike
@@ -865,63 +874,133 @@ final class FreshInkPathProvider: AnnotationPathProviding {
         // idle CPU stays 0%. Click-through is unaffected: the OWNING WINDOW's
         // ignoresMouseEvents routes events past the window entirely,
         // regardless of what subviews exist in its view tree.
+        let caption = style == .caption
         let radius = min(frame.height / 2, CGFloat(Tokens.textMetrics.cornerRadius))
         let effectView = NSVisualEffectView(frame: frame)
         effectView.material = .hudWindow
         effectView.blendingMode = .behindWindow
         effectView.state = .active   // pinned active: the overlay never becomes key
         effectView.wantsLayer = true
-        effectView.layer?.cornerRadius = radius
-        effectView.layer?.masksToBounds = true
-        // A hairline glass-edge highlight — subtle, just enough for the card
-        // to read as a distinct object over busy/high-contrast content
-        // without turning it into a UI chip.
-        // Tint the card with the mark's own colour, so a label is unmistakably
-        // attached to its loop even with several on screen — and so it lifts off
-        // grey interface, which a neutral card does not.
-        let tint = CALayer()
-        tint.frame = CGRect(origin: .zero, size: frame.size)
-        tint.backgroundColor = p3(color.color, alpha: Tokens.calloutTintAlpha)
-        tint.cornerRadius = radius
-        effectView.layer?.addSublayer(tint)
 
-        effectView.layer?.borderWidth = 1.0
-        effectView.layer?.borderColor = p3(color.color, alpha: Tokens.calloutTintBorderAlpha)
-        effectView.layer?.shadowColor = p3(P3Color(red: 0, green: 0, blue: 0))
-        effectView.layer?.shadowOpacity = 0.22
-        effectView.layer?.shadowRadius = 8
-        effectView.layer?.shadowOffset = CGSize(width: 0, height: 2)
+        if caption {
+            // A CAPTION HAS NO PLATE, but it keeps the effect view, because the
+            // view is what the rest of the overlay knows a callout by: its frame
+            // is the hit area, the hard obstacle other plates avoid, the region
+            // the wipe clears, and the thing `relayoutCallout` moves. Dropping it
+            // would mean teaching all four of those a second way to ask where a
+            // label is, in order to render less.
+            //
+            // `maskImage` masks the MATERIAL only. Measured on screen 2026-10-19
+            // by diffing captures of the same region: a transparent mask leaves
+            // *zero* pixels changed where the plate is, while its sublayers go on
+            // drawing normally. `blendingMode = .withinWindow` was the obvious
+            // alternative and does NOT work — the material stayed fully visible.
+            effectView.maskImage = Self.invisibleMaterialMask
+            // Nothing may be clipped to the plate's bounds now: the outline and
+            // its shadow are the only things holding the words together, and they
+            // bleed past the glyphs by design.
+            effectView.layer?.masksToBounds = false
+        } else {
+            effectView.layer?.cornerRadius = radius
+            effectView.layer?.masksToBounds = true
+            // A hairline glass-edge highlight — subtle, just enough for the card
+            // to read as a distinct object over busy/high-contrast content
+            // without turning it into a UI chip.
+            // Tint the card with the mark's own colour, so a label is unmistakably
+            // attached to its loop even with several on screen — and so it lifts off
+            // grey interface, which a neutral card does not.
+            let tint = CALayer()
+            tint.name = "callout-tint"
+            tint.frame = CGRect(origin: .zero, size: frame.size)
+            tint.backgroundColor = p3(color.color, alpha: Tokens.calloutTintAlpha)
+            tint.cornerRadius = radius
+            effectView.layer?.addSublayer(tint)
+
+            effectView.layer?.borderWidth = 1.0
+            effectView.layer?.borderColor = p3(color.color, alpha: Tokens.calloutTintBorderAlpha)
+            effectView.layer?.shadowColor = p3(P3Color(red: 0, green: 0, blue: 0))
+            effectView.layer?.shadowOpacity = 0.22
+            effectView.layer?.shadowRadius = 8
+            effectView.layer?.shadowOffset = CGSize(width: 0, height: 2)
+        }
         host.addSubview(effectView)
 
         let font = roundedFont()
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         paragraph.lineBreakMode = .byWordWrapping
-        let label = CATextLayer()
-        label.string = NSAttributedString(string: text, attributes: [
-            .font: font,
-            .foregroundColor: NSColor(cgColor: p3(Tokens.chalk)) ?? .white,
-            .kern: Tokens.textMetrics.tracking,
-            .paragraphStyle: paragraph,
-        ])
-        label.font = font
-        label.fontSize = font.pointSize
-        label.foregroundColor = p3(Tokens.chalk)
-        label.alignmentMode = .center
-        label.isWrapped = true
-        label.truncationMode = .end
-        label.contentsScale = scale
+        // A card's words are always chalk — the plate is what carries the colour,
+        // and a 22% tint can never drift far enough from the material's grey for
+        // that to fail. With no plate, the colour IS the words, and the casing
+        // that keeps a pen stroke legible keeps them legible too.
+        let fillColor = caption ? color.color : Tokens.chalk
         // Local to the effect view's own layer (origin zero), not `frame` —
         // the text layer is hosted inside the material card's layer, not the
         // annotation's window-space coordinate system.
-        label.frame = CGRect(origin: .zero, size: frame.size)
+        let textFrame = CGRect(origin: .zero, size: frame.size)
             .insetBy(dx: CGFloat(Tokens.textMetrics.horizontalPadding), dy: CGFloat(Tokens.textMetrics.verticalPadding))
+
+        func textLayer(_ attributes: [NSAttributedString.Key: Any]) -> CATextLayer {
+            let layer = CATextLayer()
+            layer.string = NSAttributedString(string: text, attributes: attributes.merging([
+                .font: font,
+                .kern: Tokens.textMetrics.tracking,
+                .paragraphStyle: paragraph,
+            ]) { mine, _ in mine })
+            layer.font = font
+            layer.fontSize = font.pointSize
+            layer.alignmentMode = .center
+            layer.isWrapped = true
+            layer.truncationMode = .end
+            layer.contentsScale = scale
+            layer.frame = textFrame
+            return layer
+        }
+
+        // The outline is its OWN layer, behind the fill, because that is the only
+        // way to get `paint-order: stroke fill` out of Core Text — see
+        // `Tokens.captionStrokeWidth` for what one layer does instead. A positive
+        // `strokeWidth` strokes WITHOUT filling, which is exactly the back layer.
+        if caption {
+            let casing = casingColor(for: color)
+            let outline = textLayer([
+                .strokeColor: NSColor(cgColor: p3(casing)) ?? .black,
+                .strokeWidth: Tokens.captionStrokeWidth,
+                .foregroundColor: NSColor.clear,
+            ])
+            outline.name = "callout-outline"
+            outline.shadowColor = p3(casing)
+            outline.shadowOpacity = Float(Tokens.captionShadowOpacity)
+            outline.shadowRadius = CGFloat(Tokens.captionShadowRadius)
+            outline.shadowOffset = CGSize(width: 0, height: CGFloat(Tokens.captionShadowOffsetY))
+            effectView.layer?.addSublayer(outline)
+        }
+
+        let label = textLayer([.foregroundColor: NSColor(cgColor: p3(fillColor)) ?? .white])
+        label.foregroundColor = p3(fillColor)
         effectView.layer?.addSublayer(label)
 
         // The effect view's own layer is the entrance/exit animation target;
         // it fades + rises as one, exactly like the old ink-wash callout did.
+        // Both text layers are sublayers of it, so an outline needs no animation
+        // of its own — it cannot drift out of step with the fill it backs.
         return Callout(effectView: effectView, layer: effectView.layer!, textLayer: label)
     }
+
+    /// A fully transparent mask, which removes an `NSVisualEffectView`'s material
+    /// while leaving the view — and everything hosted in its layer — in place.
+    ///
+    /// One pixel is enough: AppKit stretches it over the view. Built once, since
+    /// every caption wants the same nothing.
+    private static let invisibleMaterialMask: NSImage = {
+        let image = NSImage(size: NSSize(width: 1, height: 1))
+        image.lockFocus()
+        NSColor.clear.set()
+        NSRect(x: 0, y: 0, width: 1, height: 1).fill()
+        image.unlockFocus()
+        image.resizingMode = .stretch
+        return image
+    }()
 
     /// Places a label plate, given what is already on this screen.
     ///
@@ -977,7 +1056,7 @@ final class FreshInkPathProvider: AnnotationPathProviding {
     /// its entrance animation.
     func relayoutCallout(for root: FreshInkAnnotationLayer, annotation: Annotation,
                          on screen: ScreenDescriptor, obstacles: CalloutObstacles) -> Bool {
-        let color = strokeColor(for: annotation.color)
+        let color = calloutColor(for: annotation)
         let seed = Rough.fnv1a64(annotation.id.uuidString)
         guard let anchor = root.calloutAnchor,
               let size = root.calloutSize,
@@ -1255,6 +1334,29 @@ final class FreshInkPathProvider: AnnotationPathProviding {
             // tested in AnnotateCore — see P3Color.casing.
             return RoleColor(color: custom, casing: custom.casing)
         }
+    }
+
+    /// The colour a callout is painted in — its plate for a `card`, its WORDS for
+    /// a `caption`, since a caption has no plate.
+    ///
+    /// A STANDALONE caption must not track the system appearance. `ink` exists to
+    /// stay contrasty against ink strokes, so it flips with light/dark mode —
+    /// correct for a pen line, and the reason the same `annotate_text` call
+    /// recorded differently on two Macs. Pinned to `inkDark` here, which is
+    /// near-white and carries a dark casing: the canonical burned-in caption,
+    /// whatever the machine was set to.
+    ///
+    /// Keyed on the SHAPE, not just the style, because a label on a circle or an
+    /// arrow must not be pinned. Its mark's ink still flips, and a dark loop
+    /// carrying near-white words breaks the very tie a label needs. Deciding this
+    /// in one place is also what keeps `relayoutCallout` from redrawing a moved
+    /// leader in a colour the first draw never used.
+    private func calloutColor(for annotation: Annotation) -> RoleColor {
+        if case .text = annotation.shape, annotation.style == .caption,
+           case .role(.ink) = annotation.color {
+            return Tokens.inkDark
+        }
+        return strokeColor(for: annotation.color)
     }
 
     private func highlightColor(for value: ColorValue?) -> HighlightToken {

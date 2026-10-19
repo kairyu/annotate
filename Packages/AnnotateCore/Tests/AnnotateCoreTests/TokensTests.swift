@@ -259,6 +259,24 @@ func roughPassTokensPreserveTheSecondPassTreatment() {
     #expect(Tokens.secondPassDelay == 0.07)
 }
 
+@Test("a caption's legibility is carried by an outline scaled to the font, not by a plate")
+func captionOutlineIsScaledToTheFont() {
+    // `strokeWidth` is a PERCENTAGE of font size in AppKit, which is the whole
+    // reason one number works at any text size. A value in points here would be
+    // a bug that only showed up when the type scale changed.
+    #expect(Tokens.captionStrokeWidth > 0)   // POSITIVE strokes without filling: the back layer
+    // Wide enough to read as an outline at the callout's 15pt, narrow enough not
+    // to close up the counters of small type.
+    let widthAtCalloutSize = Tokens.captionStrokeWidth / 100 * Tokens.textMetrics.size
+    #expect(widthAtCalloutSize > 0.75)
+    #expect(widthAtCalloutSize < 3)
+    // The shadow lifts the words off content of their own tone; it is not the
+    // primary carrier, so it stays softer than opaque.
+    #expect(Tokens.captionShadowOpacity > 0.5)
+    #expect(Tokens.captionShadowOpacity < 1.0)
+    #expect(Tokens.captionShadowRadius > 0)
+}
+
 @Test("casing uses WCAG relative luminance on linear-light channels")
 func casingUsesWCAGRelativeLuminanceOnLinearLightChannels() {
     // Every named palette role keeps the casing baked into its token table.
