@@ -10,7 +10,13 @@
 
 ## 1. Install the app
 
-[**Download the latest release →**](../../releases/latest)
+With [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask kairyu/tap/annotate
+```
+
+Or [**Download the latest release →**](../../releases/latest)
 
 ## 2. Install the tools
 
@@ -89,6 +95,9 @@ the app bundle:
 
 That path is the whole configuration, and it is the same everywhere. It speaks
 MCP over stdio and launches the app itself if it isn’t already running.
+
+If Annotate isn’t installed yet, `brew install --cask kairyu/tap/annotate` puts
+it at that path.
 
 ## Claude
 
