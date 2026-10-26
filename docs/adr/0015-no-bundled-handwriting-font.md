@@ -1,6 +1,10 @@
 # 15. Callout text uses SF Rounded, not a bundled handwriting font
 
-- Status: Accepted
+- Status: Accepted — the typeface decision stands unchanged. "One size" is
+  narrowed by [ADR 0018](0018-a-callout-may-have-no-plate.md): there are now two,
+  15 pt for a card and 22 pt for a caption, selected by style. The point below —
+  that size is not an API knob — still holds, because a caller picks a style and
+  never a measurement.
 
 ## Context
 

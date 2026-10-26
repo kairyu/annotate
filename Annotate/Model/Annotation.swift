@@ -25,6 +25,14 @@ struct Annotation: Identifiable, Equatable {
     /// to be behind it breaks no rule and is useless, because the reader has to
     /// look away from the thing being taught to read about it.
     var within: Rect? = nil
+    /// How this mark's callout is drawn — whether it has a plate at all.
+    ///
+    /// Lives here rather than in the shape cases for the same reason `within`
+    /// does: it is meaningful to every shape that carries words (`.text`, and a
+    /// labelled `.circle` or `.arrow`) and meaningless to the rest, so one
+    /// defaulted property serves them all and every existing construction
+    /// renders exactly as before.
+    var style: CalloutStyle = .card
 
     static func fixture(ttlSeconds: Double) -> Annotation {
         Annotation(
@@ -51,7 +59,7 @@ enum AnnotationFactory {
             case .rect(let value):
                 rect = value
             }
-            return Annotation(id: id, shape: .circle(rect, label: command.label, weight: command.weight), color: command.color, ttlSeconds: command.ttlSeconds, within: try resolvedWithin(command.within, reference: command.reference, screens: screens))
+            return Annotation(id: id, shape: .circle(rect, label: command.label, weight: command.weight), color: command.color, ttlSeconds: command.ttlSeconds, within: try resolvedWithin(command.within, reference: command.reference, screens: screens), style: command.style)
         case .highlight(let command):
             let rect = try resolved(command.target, reference: command.reference, screens: screens)
             return Annotation(id: id, shape: .highlight(rect), color: command.color, ttlSeconds: command.ttlSeconds)
@@ -101,10 +109,10 @@ enum AnnotationFactory {
                     throw ProtocolError.invalidParameters
                 }
             }
-            return Annotation(id: id, shape: .arrow(from: tail, to: tip, label: command.label, weight: command.weight), color: command.color, ttlSeconds: command.ttlSeconds, within: window)
+            return Annotation(id: id, shape: .arrow(from: tail, to: tip, label: command.label, weight: command.weight), color: command.color, ttlSeconds: command.ttlSeconds, within: window, style: command.style)
         case .text(let command):
             let point = try resolved(command.at, reference: command.reference, screens: screens)
-            return Annotation(id: id, shape: .text(at: point, text: command.text), color: command.color, ttlSeconds: command.ttlSeconds, within: try resolvedWithin(command.within, reference: command.reference, screens: screens))
+            return Annotation(id: id, shape: .text(at: point, text: command.text), color: command.color, ttlSeconds: command.ttlSeconds, within: try resolvedWithin(command.within, reference: command.reference, screens: screens), style: command.style)
         }
     }
 
