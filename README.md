@@ -23,7 +23,7 @@ Or [**Download the latest release →**](../../releases/latest)
 Tell your agent:
 
 ```
-Install the MCP tools here https://github.com/adammcarter/annotate
+Install the MCP tools here https://github.com/kairyu/annotate
 ```
 
 ## 3. Let your agent paint
