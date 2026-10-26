@@ -5,7 +5,7 @@ public enum ToolCatalog {
         //: @use-case:annotate.tool.circle
         Tool(
             name: "annotate_circle",
-            description: "CHOOSING A MARK — compact target (button, icon, word, control): annotate_circle. Wide and short (a phrase, a menu item, a row): annotate_underline to keep the text readable, or annotate_highlight to wash the whole region. Tall and narrow (a toolbar column, a sidebar, a scrollbar), or anything a mark cannot enclose: annotate_arrow. Nothing specific to point at: annotate_text. Rule of thumb: if the target's long side is more than about 4x its short side, do not circle it. Draw a hand-drawn circle around a rectangle or centred on a point — the default mark for a compact target you want the eye to land on. Circling a tall sidebar or a full-width row produces a huge ring enclosing far more than you meant. Coordinates are global top-left-origin desktop points — screenshot pixels divided by the screen's scale factor. Call annotate_screens before drawing when you need to aim at a display. Supply w and h together to circle a rectangle; omit both to draw the standard point circle. ttlSeconds defaults to 8, while 0 stays visible until clear or app exit. Color roles: accent for the normal teaching cue, warn for attention, ok for completion, ink for high contrast, or #RRGGBB for a precise colour. weight sets the pen thickness (thin, regular, bold) and still scales with annotation size, so bold on a small point stays thinner than bold on a large rectangle; omit for regular.",
+            description: "CHOOSING A MARK — compact target (button, icon, word, control): annotate_circle. Wide and short (a phrase, a menu item, a row): annotate_underline to keep the text readable, or annotate_highlight to wash the whole region. Tall and narrow (a toolbar column, a sidebar, a scrollbar), or anything a mark cannot enclose: annotate_arrow. Nothing specific to point at: annotate_text. Rule of thumb: if the target's long side is more than about 4x its short side, do not circle it. Draw a hand-drawn circle around a rectangle or centred on a point — the default mark for a compact target you want the eye to land on. Circling a tall sidebar or a full-width row produces a huge ring enclosing far more than you meant. Coordinates are global top-left-origin desktop points — screenshot pixels divided by the screen's scale factor. Call annotate_screens before drawing when you need to aim at a display. Supply w and h together to circle a rectangle; omit both to draw the standard point circle. ttlSeconds defaults to 8, while 0 stays visible until clear or app exit. Color roles: accent for the normal teaching cue, warn for attention, ok for completion, ink for high contrast, or #RRGGBB for a precise colour. weight sets the pen thickness (thin, regular, bold) and still scales with annotation size, so bold on a small point stays thinner than bold on a large rectangle; omit for regular. style applies to the label: card (default) gives it the usual translucent plate, caption drops the plate and outlines the words instead, for a recording.",
             inputSchema: schema(
                 properties: drawingProperties(includeLabel: true, includeWeight: true, pointNames: ("x", "y"), rectangle: true),
                 required: ["x", "y"]
@@ -35,7 +35,7 @@ public enum ToolCatalog {
 //: @use-case:annotate.tool.arrow
         Tool(
             name: "annotate_arrow",
-            description: "CHOOSING A MARK — compact target (button, icon, word, control): annotate_circle. Wide and short (a phrase, a menu item, a row): annotate_underline to keep the text readable, or annotate_highlight to wash the whole region. Tall and narrow (a toolbar column, a sidebar, a scrollbar), or anything a mark cannot enclose: annotate_arrow. Nothing specific to point at: annotate_text. Rule of thumb: if the target's long side is more than about 4x its short side, do not circle it. Draw a hand-drawn arrow — the mark for a target nothing can be drawn around, and the one to reach for at the edge of a window or when the point is 'go here' rather than 'look at this'. Give toX/toY alone to touch a POINT, or add toW/toH to point at a RECTANGLE — the arrow then lands on that rectangle's edge rather than its centre, so the arrowhead never covers the content it indicates, and the touch point moves along the edge between marks instead of sitting at a fixed spot. Prefer the rectangle form whenever you know the target's bounds: annotate_locate returns them, and aiming at a computed centre is what makes an arrow look machine-placed. Coordinates are global top-left-origin desktop points — screenshot pixels divided by the screen's scale factor; call annotate_screens first when aiming across displays. fromX/fromY are optional and must be supplied together; otherwise Annotate chooses a readable tail. When pointing INTO an application, pass its window frame as within {x,y,w,h} — annotate_locate returns exactly that in 'windows'. Without it the tail is only kept on the display, so an arrow aimed near an app's edge starts outside that app, in a neighbouring window, and reads as pointing out of a different program. ttlSeconds defaults to 8, and 0 is sticky. Use accent for normal guidance, warn for caution, ok for a successful destination, ink for contrast, or #RRGGBB. weight sets the pen thickness (thin, regular, bold) and still scales with arrow length; omit for regular.",
+            description: "CHOOSING A MARK — compact target (button, icon, word, control): annotate_circle. Wide and short (a phrase, a menu item, a row): annotate_underline to keep the text readable, or annotate_highlight to wash the whole region. Tall and narrow (a toolbar column, a sidebar, a scrollbar), or anything a mark cannot enclose: annotate_arrow. Nothing specific to point at: annotate_text. Rule of thumb: if the target's long side is more than about 4x its short side, do not circle it. Draw a hand-drawn arrow — the mark for a target nothing can be drawn around, and the one to reach for at the edge of a window or when the point is 'go here' rather than 'look at this'. Give toX/toY alone to touch a POINT, or add toW/toH to point at a RECTANGLE — the arrow then lands on that rectangle's edge rather than its centre, so the arrowhead never covers the content it indicates, and the touch point moves along the edge between marks instead of sitting at a fixed spot. Prefer the rectangle form whenever you know the target's bounds: annotate_locate returns them, and aiming at a computed centre is what makes an arrow look machine-placed. Coordinates are global top-left-origin desktop points — screenshot pixels divided by the screen's scale factor; call annotate_screens first when aiming across displays. fromX/fromY are optional and must be supplied together; otherwise Annotate chooses a readable tail. When pointing INTO an application, pass its window frame as within {x,y,w,h} — annotate_locate returns exactly that in 'windows'. Without it the tail is only kept on the display, so an arrow aimed near an app's edge starts outside that app, in a neighbouring window, and reads as pointing out of a different program. ttlSeconds defaults to 8, and 0 is sticky. Use accent for normal guidance, warn for caution, ok for a successful destination, ink for contrast, or #RRGGBB. weight sets the pen thickness (thin, regular, bold) and still scales with arrow length; omit for regular. style applies to the label: card (default) gives it the usual translucent plate, caption drops the plate and outlines the words instead, for a recording.",
             inputSchema: schema(
                 properties: arrowProperties(),
                 required: ["toX", "toY"]
@@ -45,7 +45,7 @@ public enum ToolCatalog {
         //: @use-case:annotate.tool.text
         Tool(
             name: "annotate_text",
-            description: "CHOOSING A MARK — compact target (button, icon, word, control): annotate_circle. Wide and short (a phrase, a menu item, a row): annotate_underline to keep the text readable, or annotate_highlight to wash the whole region. Tall and narrow (a toolbar column, a sidebar, a scrollbar), or anything a mark cannot enclose: annotate_arrow. Nothing specific to point at: annotate_text. Rule of thumb: if the target's long side is more than about 4x its short side, do not circle it. Place a short callout at x/y — for something with no specific control to indicate. When there IS a target, prefer the label on annotate_circle or annotate_arrow: a mark with its own label ties the words to the thing, while a loose callout leaves the reader hunting for what it refers to. Coordinates are global top-left-origin desktop points — screenshot pixels divided by the screen's scale factor. Use annotate_screens to aim at the correct display. ttlSeconds defaults to 8; 0 keeps the callout until clear or app exit. Color roles are accent for normal guidance, warn for attention, ok for success, ink for contrast, or #RRGGBB.",
+            description: "CHOOSING A MARK — compact target (button, icon, word, control): annotate_circle. Wide and short (a phrase, a menu item, a row): annotate_underline to keep the text readable, or annotate_highlight to wash the whole region. Tall and narrow (a toolbar column, a sidebar, a scrollbar), or anything a mark cannot enclose: annotate_arrow. Nothing specific to point at: annotate_text. Rule of thumb: if the target's long side is more than about 4x its short side, do not circle it. Place a short callout at x/y — for something with no specific control to indicate. When there IS a target, prefer the label on annotate_circle or annotate_arrow: a mark with its own label ties the words to the thing, while a loose callout leaves the reader hunting for what it refers to. Coordinates are global top-left-origin desktop points — screenshot pixels divided by the screen's scale factor. Use annotate_screens to aim at the correct display. ttlSeconds defaults to 8; 0 keeps the callout until clear or app exit. Color roles are accent for normal guidance, warn for attention, ok for success, ink for contrast, or #RRGGBB. style decides whether there is a plate at all: card (default) is the translucent chip that matches every other mark's label, while caption drops the plate entirely and burns the words onto the screen with an outline and shadow, the way a subtitle is burned into video, unaffected by light or dark mode — reach for caption for a line of narration being recorded rather than taught live, keep card for anything that wraps to a paragraph, and remember that caption makes color the colour of the text itself.",
             inputSchema: schema(
                 properties: textProperties(),
                 required: ["x", "y", "text"]
@@ -153,6 +153,7 @@ public enum ToolCatalog {
         }
         if includeLabel {
             properties["label"] = string("Optional teaching label, up to 200 characters.")
+            properties["style"] = styleProperty()
         }
         if includeWeight {
             properties["weight"] = weightProperty()
@@ -189,6 +190,7 @@ public enum ToolCatalog {
         properties["withinH"] = number("Optional: height of that region.")
         properties["label"] = string("Optional teaching label, up to 200 characters.")
         properties["weight"] = weightProperty()
+        properties["style"] = styleProperty()
         return properties
     }
 
@@ -202,11 +204,23 @@ public enum ToolCatalog {
         ])
     }
 
+    /// Whether the callout has a plate — an intent, like `weight`. Offered by
+    /// every tool that can carry words: `annotate_text`, and a labelled
+    /// `annotate_circle` or `annotate_arrow`.
+    private static func styleProperty() -> Value {
+        .object([
+            "type": .string("string"),
+            "enum": .array([.string("card"), .string("caption")]),
+            "description": .string("Optional style for the words. card (default) is the translucent plate that matches every other mark's label — use it when teaching live, and for anything longer than one line, because a plate reads a wrapped paragraph better than an outline does. caption has NO plate: the words sit straight on the screen with an outline and shadow behind them, the way a subtitle is burned into video — use it for a line of narration over a screen recording. With caption, color is the colour of the TEXT; on annotate_text omit color for the near-white caption, while on a circle or arrow the words take the mark's own colour so they stay tied to it."),
+        ])
+    }
+
     private static func textProperties() -> [String: Value] {
         var properties = commonDrawingProperties()
         properties["x"] = number("Horizontal coordinate in screen points.")
         properties["y"] = number("Vertical coordinate in screen points.")
         properties["text"] = string("Callout text, up to 300 characters.")
+        properties["style"] = styleProperty()
         properties["withinX"] = number("Optional: left edge of the window this label belongs to — from annotate_locate 'windows'. Keeps it inside that application. Supply all four withinX/Y/W/H together.")
         properties["withinY"] = number("Optional: top edge of that window.")
         properties["withinW"] = number("Optional: width of that window.")

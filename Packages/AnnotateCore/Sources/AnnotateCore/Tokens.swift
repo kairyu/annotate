@@ -346,6 +346,38 @@ public enum Tokens {
     public static let chalk = P3Color(red: 244.0 / 255.0, green: 242.0 / 255.0, blue: 239.0 / 255.0)
     public static let textPlate = P3Color(red: 38.0 / 255.0, green: 36.0 / 255.0, blue: 46.0 / 255.0)
     public static let textMetrics = TextMetrics(size: 15, tracking: 0.2, cornerRadius: 14, horizontalPadding: 10, verticalPadding: 6, maxWidth: 260)
+
+    /// A caption's own metrics, because a caption is read under different conditions
+    /// than a card.
+    ///
+    /// A card sits beside the control it labels and is read while the screen is
+    /// still: 15pt is quiet on purpose, and 260pt of width keeps it chip-shaped
+    /// next to its mark. A caption is narration burned into a recording — it is
+    /// often the only words on screen, it is read *while something else moves*,
+    /// and it is watched later at whatever size the video is played at. Both
+    /// numbers are wrong for that job, and measured so: 15pt read as secondary
+    /// against the app being demonstrated, and 260pt wrapped a single line of
+    /// narration onto three.
+    ///
+    /// `cornerRadius` is zero because there is no plate to round, and the
+    /// `maxWidth` is a line length rather than a chip width — wide enough for a
+    /// sentence, short enough that the eye does not have to travel the display to
+    /// read it. `calloutLayout` still bounds everything by the screen (ADR 0012),
+    /// so this is a preference, never a promise.
+    ///
+    /// One knock-on worth knowing: `Tokens.captionStrokeWidth` is a PERCENTAGE of
+    /// the point size, so a larger caption also gets a proportionally heavier
+    /// casing. Raising the size raises the contrast with it.
+    public static let captionMetrics = TextMetrics(size: 22, tracking: 0.2, cornerRadius: 0, horizontalPadding: 12, verticalPadding: 8, maxWidth: 520)
+
+    /// The metrics a style is drawn at. One lookup, so no call site has to know
+    /// which of the two it is holding.
+    public static func metrics(for style: CalloutStyle) -> TextMetrics {
+        switch style {
+        case .card: textMetrics
+        case .caption: captionMetrics
+        }
+    }
     public static let textPlateJitter = 0.75          // (retained: general ink jitter utility)
 
     // How far a callout plate must stay clear of the screen's edge. Was a bare
@@ -425,6 +457,30 @@ public enum Tokens {
     // reads as identity while a fill reads as background.
     public static let calloutTintAlpha = 0.22
     public static let calloutTintBorderAlpha = 0.55
+
+    // `CalloutStyle.caption`: NO plate — words burned straight onto the screen,
+    // the way a caption is burned into a frame of video.
+    //
+    // The whole legibility budget therefore sits in the CASING: an outline in the
+    // text's own casing colour, plus a shadow of the same colour behind it. That
+    // is the identical trick the pen strokes use (DESIGN.md §2), and it is what
+    // lets one caption survive a white panel, a dark terminal and a saturated
+    // thumbnail without a surface of its own.
+    //
+    // The outline has to be a SEPARATE text layer behind the fill. Measured
+    // 2026-10-19: `NSAttributedString.strokeWidth` of -12 on one layer — AppKit's
+    // documented "fill and stroke" — rendered the phrase with *zero* fill pixels
+    // left, because Core Text strokes centred on the glyph outline AFTER filling
+    // and a stroke that heavy simply covers the stems. CSS has `paint-order:
+    // stroke fill` for exactly this; Core Animation has no equivalent, so the
+    // order is expressed as two layers.
+    //
+    // `strokeWidth` is a PERCENTAGE of the font's point size, not a width in
+    // points, so this one number holds at any text size.
+    public static let captionStrokeWidth = 10.0
+    public static let captionShadowOpacity = 0.75
+    public static let captionShadowRadius = 3.0
+    public static let captionShadowOffsetY = -1.0
 
     public static let circlePaddingFraction = 0.12
     public static let circleMinimumPadding = 8.0
