@@ -12,5 +12,5 @@ public enum AnnotateVersion {
     ///
     /// Below 1.0 on purpose: the wire protocol and the tool schemas are still
     /// free to change, and a 0.x number says that without a paragraph.
-    public static let current = "0.1.0"
+    public static let current = "0.2.0"
 }
