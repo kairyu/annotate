@@ -10,13 +10,13 @@ public enum AppLauncherError: Error, LocalizedError, Equatable, Sendable {
         case .autoLaunchDisabled:
             "Annotate.app is not running and ANNOTATE_NO_AUTOLAUNCH=1 disables auto-launch. Launch Annotate.app, then retry."
         case .appUnavailable(let socketPath):
-            "Annotate.app could not be reached at \(socketPath). Install or launch com.adammcarter.Annotate, then retry."
+            "Annotate.app could not be reached at \(socketPath). Install or launch me.kairyu.annotate, then retry."
         }
     }
 }
 
 public struct AppLauncher: Sendable {
-    public static let bundleIdentifier = "com.adammcarter.Annotate"
+    public static let bundleIdentifier = "me.kairyu.annotate"
 
     public let socketPath: String
     private let autoLaunchEnabled: Bool

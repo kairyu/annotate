@@ -24,7 +24,7 @@ socket has no authentication:*
   Requests > 8 KB are rejected (`invalid_params`).
 - Client behavior: if connect fails, treat the app as not running (a stale
   socket file does NOT mean running), launch it via
-  `NSWorkspace.openApplication` (bundle id `com.adammcarter.Annotate`,
+  `NSWorkspace.openApplication` (bundle id `me.kairyu.annotate`,
   `activates = false`), retry connect every 100 ms up to 5 s.
 
 ## Coordinate space — "screen points"

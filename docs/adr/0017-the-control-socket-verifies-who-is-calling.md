@@ -159,7 +159,7 @@ same token, val[7]+1 → -67065 errSecCSNoSuchCode
   must never wait for a human: the first call answers `approval_pending` and the
   agent's next one succeeds.
 - The bridge now has to be signed with an explicit
-  `--identifier com.adammcarter.Annotate.mcp`. Without it `codesign` derives one
+  `--identifier me.kairyu.annotate.mcp`. Without it `codesign` derives one
   from the binary's LC_UUID, which changes on every link, and the requirement
   could never match the shipped helper. A test in `AnnotateCoreTests` asserts the
   literal is still in `release.yml`, because nothing else would notice.
