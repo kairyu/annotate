@@ -106,7 +106,7 @@ extension SecurityCodeSignatureAuthority {
     /// explicitly in `release.yml`, because `codesign` without `--identifier`
     /// derives one from the binary's LC_UUID — which changes on every link, so a
     /// requirement naming it could never match the next build.
-    static let bridgeSigningIdentifier = "com.adammcarter.Annotate.mcp"
+    static let bridgeSigningIdentifier = "me.kairyu.annotate.mcp"
 
     /// Derives what a peer has to prove, once, from how Annotate itself is
     /// signed. Called at `start()`; nil means every `locate` is refused and

@@ -1081,7 +1081,7 @@ private func drawnInk(_ paths: CirclePaths) -> (minX: Double, maxX: Double, minY
 /// The release workflow must sign the MCP bridge with an EXPLICIT identifier.
 ///
 /// ADR 0017 answers `locate` only for a peer satisfying a code requirement that
-/// names `com.adammcarter.Annotate.mcp`. `codesign` without `--identifier`
+/// names `me.kairyu.annotate.mcp`. `codesign` without `--identifier`
 /// derives one from the binary's LC_UUID, which changes on every link — so the
 /// requirement would match the build it was written against and nothing else,
 /// and `locate` would be refused for the whole life of that release. Nothing in
@@ -1101,7 +1101,7 @@ private func drawnInk(_ paths: CirclePaths) -> (minX: Double, maxX: Double, minY
     guard let contents = try? String(contentsOf: workflow, encoding: .utf8) else {
         return  // built outside a checkout; nothing to compare against
     }
-    #expect(contents.contains("--identifier com.adammcarter.Annotate.mcp"),
+    #expect(contents.contains("--identifier me.kairyu.annotate.mcp"),
             "release.yml signs annotate-mcp without pinning its identifier, so ADR 0017's bridge requirement cannot match the shipped helper")
 }
 

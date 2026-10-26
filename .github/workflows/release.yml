@@ -94,7 +94,9 @@ jobs:
           AC_ISSUER: ${{ secrets.AC_API_ISSUER_ID }}
         run: |
           missing=""
-          for name in CERT CERT_PASSWORD AC_KEY AC_KEY_ID AC_ISSUER; do
+          # CERT_PASSWORD is not required: a .p12 may be exported with no
+          # password, and `security import -P ""` accepts that.
+          for name in CERT AC_KEY AC_KEY_ID AC_ISSUER; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
@@ -126,7 +128,7 @@ jobs:
           security set-keychain-settings -lut 21600 build.keychain
 
           printf '%s' "$CERT" | base64 --decode > /tmp/cert.p12
-          security import /tmp/cert.p12 -k build.keychain -P "$CERT_PASSWORD" \
+          security import /tmp/cert.p12 -k build.keychain -P "${CERT_PASSWORD:-}" \
             -T /usr/bin/codesign -T /usr/bin/security
           rm -f /tmp/cert.p12
 
@@ -186,7 +188,7 @@ jobs:
       # Hardened runtime is required for notarisation, and the secure timestamp
       # is what keeps the signature valid after the certificate itself expires.
       # `--identifier` on the helper is load-bearing, not tidiness. ADR 0017's
-      # requirement names `com.adammcarter.Annotate.mcp`, and codesign without
+      # requirement names `me.kairyu.annotate.mcp`, and codesign without
       # this flag derives an identifier from the binary's LC_UUID — a value that
       # changes on every link. The requirement would then match the build it was
       # written against and nothing else, so `locate` would be refused for the
@@ -210,7 +212,7 @@ jobs:
           deadline() { perl -e 'alarm shift; exec @ARGV' "$@"; }
 
           deadline 300 codesign --force --options runtime --timestamp \
-            --identifier com.adammcarter.Annotate.mcp \
+            --identifier me.kairyu.annotate.mcp \
             --sign "Developer ID Application" "$APP/Contents/MacOS/annotate-mcp"
           deadline 300 codesign --force --options runtime --timestamp \
             --sign "Developer ID Application" "$APP"
@@ -309,6 +311,54 @@ jobs:
           generate_release_notes: false
           body_path: notes.md
 
+      # Mirrors kairyu/anyway-connect's tap step. The cask is rendered by
+      # Tools/make-cask.sh and attached to the release as well as pushed.
+      # The push uses an SSH deploy key scoped to the tap alone; without it the
+      # cask is still attached and only the push is skipped. Runs after the
+      # keychain is gone, so no Developer ID key shares the runner with it.
+      - name: Update the Homebrew tap
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          TAP_REPO: kairyu/homebrew-tap
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -eu
+          SHA=$(shasum -a 256 "Annotate-${TAG}.zip" | cut -d' ' -f1)
+          sh Tools/make-cask.sh "$VERSION" "$SHA" > annotate.rb
+          cat annotate.rb
+          gh release upload "$TAG" annotate.rb --clobber -R "$GITHUB_REPOSITORY"
+
+          if [ -z "${TAP_DEPLOY_KEY:-}" ]; then
+            echo "::notice::HOMEBREW_TAP_DEPLOY_KEY not set — cask attached to the release but tap not updated"
+            exit 0
+          fi
+
+          KEYFILE="$RUNNER_TEMP/tap_deploy_key"
+          printf '%s\n' "$TAP_DEPLOY_KEY" > "$KEYFILE"
+          chmod 600 "$KEYFILE"
+          # Host keys pinned from GitHub's published set, not trusted on first use.
+          KNOWN="$RUNNER_TEMP/known_hosts"
+          gh api meta --jq '.ssh_keys[]' | sed 's/^/github.com /' > "$KNOWN"
+          [ -s "$KNOWN" ] || { echo "::error::could not fetch GitHub host keys"; exit 1; }
+
+          export GIT_SSH_COMMAND="ssh -i $KEYFILE -o IdentitiesOnly=yes -o UserKnownHostsFile=$KNOWN"
+          git clone --depth 1 "git@github.com:${TAP_REPO}.git" "$RUNNER_TEMP/tap"
+          mkdir -p "$RUNNER_TEMP/tap/Casks"
+          cp annotate.rb "$RUNNER_TEMP/tap/Casks/annotate.rb"
+          cd "$RUNNER_TEMP/tap"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/annotate.rb
+          if git diff --cached --quiet; then
+            echo "cask already current"
+          else
+            git commit -m "annotate ${VERSION}"
+            git push
+          fi
+          rm -f "$KEYFILE"
+
       # Runs even when something above failed — including before the deletion
       # above was reached — so a broken build never leaves a keychain holding a
       # Developer ID certificate on the runner.
@@ -316,4 +366,4 @@ jobs:
         if: always()
         run: |
           security delete-keychain build.keychain 2>/dev/null || true
-          rm -f /tmp/cert.p12 /tmp/ac.p8 /tmp/notarise.zip || true
+          rm -f /tmp/cert.p12 /tmp/ac.p8 /tmp/notarise.zip "$RUNNER_TEMP/tap_deploy_key" || true

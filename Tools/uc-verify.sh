@@ -211,7 +211,7 @@ case "$ROW" in
       not_authorized)
         echo "the bundled bridge was refused as well — the app cannot identify its own helper."
         echo "Is annotate-mcp inside the RUNNING bundle, and signed with"
-        echo "--identifier com.adammcarter.Annotate.mcp?"
+        echo "--identifier me.kairyu.annotate.mcp?"
         exit 1 ;;
       approval_pending|approval_declined)
         echo "nobody answered the approval panel ($COVERAGE)."

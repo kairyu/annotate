@@ -162,7 +162,7 @@ final class FakeHostApprovalPrompt: HostApprovalPrompt {
 @MainActor
 final class PeerWorld {
     static let team = "Q6L2SF6YDW"
-    static let bridgeIdentifier = "com.adammcarter.Annotate.mcp"
+    static let bridgeIdentifier = "me.kairyu.annotate.mcp"
     static let bundledBridgePath = "/Applications/Annotate.app/Contents/MacOS/annotate-mcp"
     static let bundledBridgeFile = FileIdentity(deviceID: 16_777_232, inode: 4_242)
     static let hostIdentifier = "com.anthropic.claude-code"

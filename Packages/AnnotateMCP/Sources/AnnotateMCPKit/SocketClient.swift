@@ -57,7 +57,7 @@ struct LineBuffer: Sendable {
 }
 
 public actor SocketClient {
-    private static let networkQueue = DispatchQueue(label: "com.adammcarter.annotate-mcp.socket")
+    private static let networkQueue = DispatchQueue(label: "me.kairyu.annotate-mcp.socket")
 
     public let socketPath: String
     private var connection: NWConnection?

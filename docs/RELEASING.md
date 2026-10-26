@@ -32,7 +32,7 @@ appears in the source or in a build log.
 | Secret | What it is |
 |---|---|
 | `MACOS_CERT_P12_BASE64` | Developer ID Application certificate + private key, as base64 of a `.p12` |
-| `MACOS_CERT_PASSWORD` | The password protecting that `.p12` |
+| `MACOS_CERT_PASSWORD` | The password protecting that `.p12` (optional if it has none) |
 | `AC_API_KEY_P8_BASE64` | App Store Connect API key, as base64 of the `.p8` |
 | `AC_API_KEY_ID` | That key's ID (10 characters) |
 | `AC_API_ISSUER_ID` | Your App Store Connect issuer ID (a UUID) |
@@ -81,6 +81,27 @@ sign something in your name.
 means creating a new certificate, and a new identity makes macOS treat every
 future build as a different application, dropping each user's Accessibility
 grant.
+
+## Homebrew tap
+
+After publishing, the workflow renders a cask with `Tools/make-cask.sh`,
+attaches it to the release, and pushes it to `kairyu/homebrew-tap` as
+`Casks/annotate.rb`. The push needs one optional secret:
+
+| Secret | What it is |
+|---|---|
+| `HOMEBREW_TAP_DEPLOY_KEY` | SSH private key of a **write** deploy key on `kairyu/homebrew-tap` |
+
+Without it the cask is still attached to the release; only the push is skipped.
+
+```sh
+ssh-keygen -t ed25519 -N "" -C "annotate release workflow" -f tap_key
+gh repo deploy-key add tap_key.pub -R kairyu/homebrew-tap --allow-write -t "annotate release workflow"
+gh secret set HOMEBREW_TAP_DEPLOY_KEY < tap_key
+rm tap_key tap_key.pub
+```
+
+Then: `brew install --cask kairyu/tap/annotate`.
 
 ## Branch protection
 
