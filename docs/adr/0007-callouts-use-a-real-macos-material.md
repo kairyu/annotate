@@ -1,6 +1,9 @@
 # 7. Text callouts use a real macOS material, the one place the overlay blurs
 
-- Status: Accepted
+- Status: Accepted — amended by [ADR 0018](0018-a-callout-may-have-no-plate.md),
+  which makes "no plate, outlined text only" an opt-in for recordings. The plate
+  below is still the default, and the reason it was preferred still stands for
+  anything longer than a line.
 - Date: undated
 
 ## Context

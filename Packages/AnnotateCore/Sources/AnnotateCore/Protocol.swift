@@ -103,6 +103,35 @@ public enum StrokeWeight: String, Codable, CaseIterable, Equatable, Sendable {
     }
 }
 
+/// Whether a callout has a plate at all — an intent, like `StrokeWeight`, not a
+/// set of knobs.
+///
+/// `card` is the HUD material chip a label has always been: the colour tints a
+/// live blur at `Tokens.calloutTintAlpha`, so the words read as part of the
+/// interface being taught. Right for teaching, wrong for a recording — and the
+/// plate is the reason, not its colour. It reads as a piece of UI that happens to
+/// contain words, which is what made three attempts to turn it into a caption
+/// fail: a dark hex cannot darken a 22% tint, the label is a fixed near-white,
+/// and the `ink` role INVERTS with the system appearance, so the same call
+/// recorded lighter in dark mode than in light.
+///
+/// `caption` removes the plate instead of recolouring it: the words sit directly
+/// on the screen, burned on the way a subtitle is burned into a frame of video,
+/// carried by an outline and a shadow in their own casing colour (see
+/// `Tokens.captionStrokeWidth`) so they survive whatever happens to be behind
+/// them. `color` stops describing a surface and describes the TEXT, and `ink`
+/// means the canonical caption — near-white words with a dark casing, pinned so
+/// a frame grabbed in light mode matches one grabbed in dark.
+///
+/// Best for ONE LINE of narration. `RESEARCH.md` chose the plate for callouts
+/// deliberately — "chip beats per-glyph outline for paragraph legibility" — and
+/// that still holds: an outline carries a short line beautifully and a wrapped
+/// paragraph less well, so a long instruction still wants `card`.
+public enum CalloutStyle: String, Codable, CaseIterable, Equatable, Sendable {
+    case card
+    case caption
+}
+
 public struct HexColor: Codable, Equatable, Sendable {
     public let red: UInt8
     public let green: UInt8
@@ -191,19 +220,22 @@ public struct CircleCommand: Codable, Equatable, Sendable {
     public var color: ColorValue
     public var ttlSeconds: Double
     public var weight: StrokeWeight
+    /// How this mark's LABEL is drawn. Only meaningful with `label`.
+    public var style: CalloutStyle
     public var reference: CoordinateReference
 
-    public init(target: Target, within: Rect? = nil, label: String? = nil, color: ColorValue = .role(.accent), ttlSeconds: Double = 8, weight: StrokeWeight = .regular, reference: CoordinateReference = .global) {
+    public init(target: Target, within: Rect? = nil, label: String? = nil, color: ColorValue = .role(.accent), ttlSeconds: Double = 8, weight: StrokeWeight = .regular, style: CalloutStyle = .card, reference: CoordinateReference = .global) {
         self.target = target
         self.within = within
         self.label = label
         self.color = color
         self.ttlSeconds = ttlSeconds
         self.weight = weight
+        self.style = style
         self.reference = reference
     }
 
-    private enum CodingKeys: String, CodingKey { case target, within, label, color, ttlSeconds, weight }
+    private enum CodingKeys: String, CodingKey { case target, within, label, color, ttlSeconds, weight, style }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -215,6 +247,7 @@ public struct CircleCommand: Codable, Equatable, Sendable {
         // Absent `weight` decodes to .regular so recorded lines and existing
         // clients stay valid (backward compatible).
         weight = try container.decodeIfPresent(StrokeWeight.self, forKey: .weight) ?? .regular
+        style = try container.decodeIfPresent(CalloutStyle.self, forKey: .style) ?? .card
         reference = try decodeReference(from: decoder)
     }
 
@@ -226,6 +259,7 @@ public struct CircleCommand: Codable, Equatable, Sendable {
         try container.encode(color, forKey: .color)
         try container.encode(ttlSeconds, forKey: .ttlSeconds)
         try container.encode(weight, forKey: .weight)
+        try container.encode(style, forKey: .style)
         try encodeReference(reference, to: encoder)
     }
 }
@@ -329,9 +363,11 @@ public struct ArrowCommand: Codable, Equatable, Sendable {
     public var color: ColorValue
     public var ttlSeconds: Double
     public var weight: StrokeWeight
+    /// How this mark's LABEL is drawn. Only meaningful with `label`.
+    public var style: CalloutStyle
     public var reference: CoordinateReference
 
-    public init(from: Point? = nil, to: Target, within: Rect? = nil, label: String? = nil, color: ColorValue = .role(.accent), ttlSeconds: Double = 8, weight: StrokeWeight = .regular, reference: CoordinateReference = .global) {
+    public init(from: Point? = nil, to: Target, within: Rect? = nil, label: String? = nil, color: ColorValue = .role(.accent), ttlSeconds: Double = 8, weight: StrokeWeight = .regular, style: CalloutStyle = .card, reference: CoordinateReference = .global) {
         self.from = from
         self.to = to
         self.within = within
@@ -339,10 +375,11 @@ public struct ArrowCommand: Codable, Equatable, Sendable {
         self.color = color
         self.ttlSeconds = ttlSeconds
         self.weight = weight
+        self.style = style
         self.reference = reference
     }
 
-    private enum CodingKeys: String, CodingKey { case from, to, within, label, color, ttlSeconds, weight }
+    private enum CodingKeys: String, CodingKey { case from, to, within, label, color, ttlSeconds, weight, style }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -355,6 +392,7 @@ public struct ArrowCommand: Codable, Equatable, Sendable {
         // Absent `weight` decodes to .regular so recorded lines and existing
         // clients stay valid (backward compatible).
         weight = try container.decodeIfPresent(StrokeWeight.self, forKey: .weight) ?? .regular
+        style = try container.decodeIfPresent(CalloutStyle.self, forKey: .style) ?? .card
         reference = try decodeReference(from: decoder)
     }
 
@@ -367,6 +405,7 @@ public struct ArrowCommand: Codable, Equatable, Sendable {
         try container.encode(color, forKey: .color)
         try container.encode(ttlSeconds, forKey: .ttlSeconds)
         try container.encode(weight, forKey: .weight)
+        try container.encode(style, forKey: .style)
         try encodeReference(reference, to: encoder)
     }
 }
@@ -378,18 +417,20 @@ public struct TextCommand: Codable, Equatable, Sendable {
     public var text: String
     public var color: ColorValue
     public var ttlSeconds: Double
+    public var style: CalloutStyle
     public var reference: CoordinateReference
 
-    public init(at: Point, within: Rect? = nil, text: String, color: ColorValue = .role(.accent), ttlSeconds: Double = 8, reference: CoordinateReference = .global) {
+    public init(at: Point, within: Rect? = nil, text: String, color: ColorValue = .role(.accent), ttlSeconds: Double = 8, style: CalloutStyle = .card, reference: CoordinateReference = .global) {
         self.at = at
         self.within = within
         self.text = text
         self.color = color
         self.ttlSeconds = ttlSeconds
+        self.style = style
         self.reference = reference
     }
 
-    private enum CodingKeys: String, CodingKey { case at, within, text, color, ttlSeconds }
+    private enum CodingKeys: String, CodingKey { case at, within, text, color, ttlSeconds, style }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -398,6 +439,7 @@ public struct TextCommand: Codable, Equatable, Sendable {
         text = try container.decode(String.self, forKey: .text)
         color = try container.decodeIfPresent(ColorValue.self, forKey: .color) ?? .role(.accent)
         ttlSeconds = clampTTL(try container.decodeIfPresent(Double.self, forKey: .ttlSeconds))
+        style = try container.decodeIfPresent(CalloutStyle.self, forKey: .style) ?? .card
         reference = try decodeReference(from: decoder)
     }
 
@@ -408,6 +450,7 @@ public struct TextCommand: Codable, Equatable, Sendable {
         try container.encode(text, forKey: .text)
         try container.encode(color, forKey: .color)
         try container.encode(ttlSeconds, forKey: .ttlSeconds)
+        try container.encode(style, forKey: .style)
         try encodeReference(reference, to: encoder)
     }
 }

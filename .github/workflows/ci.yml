@@ -74,9 +74,37 @@ jobs:
       #
       # Installing the tool is deliberate: this check is worthless if it is
       # skipped whenever the tool is missing.
+      #
+      # The ledger tool, `uc`, BUILT FROM SOURCE at the v0.5.5 commit.
+      # `@adammcarter/use-cases` is no longer on npm (404), and its repository
+      # neither commits `dist/` nor attaches a tarball to the release, so
+      # building it is the only way to get the same 0.5.5 the ledger was
+      # written with. Pinned by commit rather than tag, like the actions.
+      #
+      # `--ignore-scripts`: its postinstall writes agent hooks into $HOME,
+      # which a CI runner has no use for.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Install the acceptance tool
+        env:
+          UC_COMMIT: 43b74f581223f6a733c989b35be8f41779eab00e # v0.5.5
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/use-cases"
+          git init -q "$SRC"
+          git -C "$SRC" fetch -q --depth 1 https://github.com/adammcarter/use-cases.git "$UC_COMMIT"
+          git -C "$SRC" checkout -q FETCH_HEAD
+          corepack enable
+          ( cd "$SRC" && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build )
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -s "$SRC/packages/cli/dist/index.js" "$RUNNER_TEMP/bin/uc"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/uc" --version | grep -qx '0.5.5'
+
       - name: Acceptance ledger
         run: |
-          npm install -g @adammcarter/use-cases@0.5.5
           uc matrix validate --json > /dev/null
           uc scan --json | tee /tmp/uc-scan.json | python3 -c '
           import json, sys

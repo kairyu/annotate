@@ -66,7 +66,7 @@ for the life of the app process; primary is always present.
 
 ### `circle`
 `{"target": <rect | point>, "within"?: <rect>, "label"?: str, "color"?: <color>,
-  "weight"?: "thin"|"regular"|"bold", "ttlSeconds"?: num}`
+  "weight"?: "thin"|"regular"|"bold", "style"?: "card"|"caption", "ttlSeconds"?: num}`
 Point target draws a 56 pt circle centered on it. → `{"ok": true, "annotationId": "<uuid>"}`
 
 ### `highlight`
@@ -82,7 +82,8 @@ overhanging both ends, with a seeded sub-degree tilt. Same ink as `circle`
 
 ### `arrow`
 `{"to": <point | rect>, "from"?: <point>, "within"?: <rect>, "label"?: str,
-  "color"?: <color>, "weight"?: "thin"|"regular"|"bold", "ttlSeconds"?: num}`
+  "color"?: <color>, "weight"?: "thin"|"regular"|"bold",
+  "style"?: "card"|"caption", "ttlSeconds"?: num}`
 `to` is the tip, or a RECTANGLE to point at — the arrow then lands on the edge
 of it that faces where the arrow comes from, so the shaft never crosses the
 target and the head never covers the content. If `from` is omitted the app
@@ -91,7 +92,7 @@ derives a tail ~140 pt from the tip, at ~30° below-left, flipped/clamped to sta
 
 ### `text`
 `{"at": <point>, "within"?: <rect>, "text": str, "color"?: <color>,
-  "ttlSeconds"?: num}`
+  "style"?: "card"|"caption", "ttlSeconds"?: num}`
 → annotationId reply. Callout plate per DESIGN.md §6, clamped on-screen.
 
 ### `clear`
@@ -215,6 +216,22 @@ is not running likewise yields an empty `results`.
   `"bold"`. A pen intent, not a point width — it multiplies the size-derived
   base width (DESIGN.md §3), so bold on a small mark still reads thinner than
   bold on a large one. Absent → `regular`.
+- `style` (text, and a LABELLED circle or arrow): `"card"` (default) | `"caption"`. `card` tints the HUD
+  material at 22%, so the plate reads as part of the interface being taught and
+  the label is always `chalk`. `caption` has **no plate**: the words sit
+  directly on the screen with an outline and a shadow in their own casing
+  colour, the way a caption is burned into video. `color` then describes the
+  TEXT rather than a surface, and `ink` is pinned to its dark-mode value
+  (near-white words, dark casing) so a frame recorded in light mode matches one
+  recorded in dark. Absent → `card`. Over MCP a bare `caption` on `text` also
+  defaults `color` to `ink` instead of the teaching `accent`.
+
+  On a **labelled mark** the words take the mark's own colour, so the label stays
+  tied to the thing it names, and two rules differ from a standalone caption:
+  `color` keeps its `accent` default (it is the loop's ink, not just its words),
+  and `ink` is **not** pinned — it resolves exactly as the mark's ink does, since
+  a pinned label on an unpinned loop is a label that does not match its mark.
+  `highlight` and `underline` carry no words, so they have no `style`.
 - `ttlSeconds`: default **8**; `0` = sticky until `clear` or app quit; clamped
   to [0, 3600]. Exit animation begins at ttl − 0.35 s (DESIGN.md §5).
 - `label` ≤ 200 chars; `text` ≤ 300 chars (over → `invalid_params`).

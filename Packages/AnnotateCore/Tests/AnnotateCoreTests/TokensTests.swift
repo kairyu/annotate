@@ -241,6 +241,31 @@ func textMetricsMatchTheDesignTable() {
     #expect(Tokens.textMetrics.maxWidth == 260)
 }
 
+@Test("a caption is read at narration size, not chip size")
+func captionMetricsAreNarrationSized() {
+    // A card is read beside the control it labels, while the screen is still. A caption is read *while
+    // something else moves*, and later, at whatever size the video is played back at — so it is larger, and
+    // its line is long enough that one sentence of narration stays one line. 15pt/260pt was measured
+    // reading as secondary against the app being demonstrated, and wrapping a single line onto three.
+    #expect(Tokens.captionMetrics.size > Tokens.textMetrics.size)
+    #expect(Tokens.captionMetrics.maxWidth > Tokens.textMetrics.maxWidth)
+    // No plate, so nothing to round.
+    #expect(Tokens.captionMetrics.cornerRadius == 0)
+    // The casing is a percentage of the point size, so a larger caption carries a heavier outline for free —
+    // which is the other half of why it survives a light background.
+    #expect(Tokens.captionStrokeWidth > 0)
+}
+
+@Test("every style resolves to its own metrics", arguments: [
+    (CalloutStyle.card, Tokens.textMetrics),
+    (CalloutStyle.caption, Tokens.captionMetrics),
+])
+func everyStyleResolvesToItsOwnMetrics(_ sample: (CalloutStyle, TextMetrics)) {
+    // One lookup, so no call site has to know which of the two it is holding — and a new style cannot be
+    // added without deciding what it is read at.
+    #expect(Tokens.metrics(for: sample.0) == sample.1)
+}
+
 @Test("hover / press transparency tokens sit in the yield range")
 func hoverPressTransparencyTokensSitInTheYieldRange() {
     // Hover dims but keeps the annotation legible; press hides it entirely.
@@ -257,6 +282,24 @@ func roughPassTokensPreserveTheSecondPassTreatment() {
     #expect(Tokens.secondPassWidthMultiplier == 0.8)
     #expect(Tokens.secondPassOpacity == 0.55)
     #expect(Tokens.secondPassDelay == 0.07)
+}
+
+@Test("a caption's legibility is carried by an outline scaled to the font, not by a plate")
+func captionOutlineIsScaledToTheFont() {
+    // `strokeWidth` is a PERCENTAGE of font size in AppKit, which is the whole
+    // reason one number works at any text size. A value in points here would be
+    // a bug that only showed up when the type scale changed.
+    #expect(Tokens.captionStrokeWidth > 0)   // POSITIVE strokes without filling: the back layer
+    // Wide enough to read as an outline at the callout's 15pt, narrow enough not
+    // to close up the counters of small type.
+    let widthAtCalloutSize = Tokens.captionStrokeWidth / 100 * Tokens.textMetrics.size
+    #expect(widthAtCalloutSize > 0.75)
+    #expect(widthAtCalloutSize < 3)
+    // The shadow lifts the words off content of their own tone; it is not the
+    // primary carrier, so it stays softer than opaque.
+    #expect(Tokens.captionShadowOpacity > 0.5)
+    #expect(Tokens.captionShadowOpacity < 1.0)
+    #expect(Tokens.captionShadowRadius > 0)
 }
 
 @Test("casing uses WCAG relative luminance on linear-light channels")

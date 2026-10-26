@@ -44,9 +44,14 @@ public enum CommandTranslator {
                 target: target,
                 within: try optionalWithin(arguments),
                 label: try optionalLabel(arguments),
+                // NOT defaulted to `ink` the way a bare caption on
+                // `annotate_text` is: here `color` is the LOOP's ink as well as
+                // its words, and silently darkening someone's mark because they
+                // asked for a caption label would be a different mark.
                 color: try color(arguments) ?? .role(.accent),
                 ttlSeconds: try ttl(arguments),
                 weight: try weight(arguments),
+                style: try calloutStyle(arguments),
                 reference: try reference(arguments)
             ))
         case "annotate_highlight":
@@ -92,9 +97,11 @@ public enum CommandTranslator {
                 to: to,
                 within: within,
                 label: try optionalLabel(arguments),
+                // See the circle above for why this keeps the accent default.
                 color: try color(arguments) ?? .role(.accent),
                 ttlSeconds: try ttl(arguments),
                 weight: try weight(arguments),
+                style: try calloutStyle(arguments),
                 reference: try reference(arguments)
             ))
         case "annotate_text":
@@ -103,12 +110,21 @@ public enum CommandTranslator {
             guard text.count <= 300 else {
                 throw CommandTranslationError.invalidArguments("'text' must be 300 characters or fewer.")
             }
+            // A caption with no colour asked for means the canonical caption —
+            // near-white words with a dark casing — not accent-purple ones.
+            // `ink` is that, pinned against the appearance flip for this style.
+            // Defaulted HERE rather than on the wire, because which colour a BARE
+            // call deserves is a question about what the tool is for, and the
+            // protocol's answer (`accent`, the teaching colour) is the right one
+            // for every other mark.
+            let style = try calloutStyle(arguments)
             command = .text(TextCommand(
                 at: at,
                 within: try optionalWithin(arguments),
                 text: text,
-                color: try color(arguments) ?? .role(.accent),
+                color: try color(arguments) ?? (style == .caption ? .role(.ink) : .role(.accent)),
                 ttlSeconds: try ttl(arguments),
+                style: style,
                 reference: try reference(arguments)
             ))
         case "annotate_clear":
@@ -156,13 +172,13 @@ public enum CommandTranslator {
     /// the agent recorded a false answer to a question it never asked. Same for
     /// `text:`, `name:`, `role: 123`, and `x` without `y`.
     private static let knownArguments: [String: Set<String>] = [
-        "annotate_circle": ["x", "y", "w", "h", "label", "color", "ttlSeconds", "weight", "screen", "norm",
+        "annotate_circle": ["x", "y", "w", "h", "label", "color", "ttlSeconds", "weight", "style", "screen", "norm",
                             "withinX", "withinY", "withinW", "withinH"],
         "annotate_highlight": ["x", "y", "w", "h", "color", "ttlSeconds", "screen", "norm"],
         "annotate_underline": ["x", "y", "w", "h", "color", "ttlSeconds", "weight", "screen", "norm"],
         "annotate_arrow": ["toX", "toY", "toW", "toH", "fromX", "fromY", "label", "color", "ttlSeconds",
-                           "weight", "screen", "norm", "withinX", "withinY", "withinW", "withinH"],
-        "annotate_text": ["x", "y", "text", "color", "ttlSeconds", "screen", "norm",
+                           "weight", "style", "screen", "norm", "withinX", "withinY", "withinW", "withinH"],
+        "annotate_text": ["x", "y", "text", "color", "ttlSeconds", "style", "screen", "norm",
                           "withinX", "withinY", "withinW", "withinH"],
         "annotate_clear": ["annotationId"],
         "annotate_screens": [],
@@ -366,6 +382,14 @@ public enum CommandTranslator {
             throw CommandTranslationError.invalidArguments("'weight' must be thin, regular, or bold.")
         }
         return weight
+    }
+
+    private static func calloutStyle(_ arguments: [String: Value]) throws -> CalloutStyle {
+        guard let value = arguments["style"] else { return .card }
+        guard case .string(let string) = value, let style = CalloutStyle(rawValue: string) else {
+            throw CommandTranslationError.invalidArguments("'style' must be card or caption.")
+        }
+        return style
     }
 
     private static func ttl(_ arguments: [String: Value]) throws -> Double {

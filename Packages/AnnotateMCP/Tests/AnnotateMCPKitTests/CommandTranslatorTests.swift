@@ -80,6 +80,74 @@ func translatorDefaultsWeightToRegular() throws {
     #expect(a.weight == .regular)
 }
 
+@Test("text parses the callout style, defaulting to card when absent", arguments: [
+    (["style": Value.string("caption")], CalloutStyle.caption),
+    (["style": Value.string("card")], CalloutStyle.card),
+    ([:], CalloutStyle.card),
+])
+func translatorParsesCalloutStyle(_ sample: ([String: Value], CalloutStyle)) throws {
+    let base: [String: Value] = ["x": .int(10), "y": .int(10), "text": .string("take 3")]
+    let line = try CommandTranslator.requestLine(toolName: "annotate_text",
+                                                 arguments: base.merging(sample.0) { _, new in new },
+                                                 requestID: "r")
+    guard case .text(let text) = try ProtocolCodec.decodeRequestLine(line, screens: testScreens).command
+    else { Issue.record("expected text"); return }
+    #expect(text.style == sample.1)
+    // Present on the encoded wire line whether or not the caller said it.
+    let object = try #require(JSONSerialization.jsonObject(with: line) as? [String: Any])
+    #expect(object["style"] as? String == sample.1.rawValue)
+}
+
+@Test("a labelled circle and arrow carry the style too, defaulting to card", arguments: [
+    ("annotate_circle", ["x": Value.int(10), "y": .int(10)]),
+    ("annotate_arrow", ["toX": Value.int(10), "toY": .int(10)]),
+])
+func translatorParsesStyleOnLabelledMarks(_ sample: (String, [String: Value])) throws {
+    func style(_ extra: [String: Value]) throws -> CalloutStyle {
+        let arguments = sample.1
+            .merging(["label": .string("Join the call")]) { _, new in new }
+            .merging(extra) { _, new in new }
+        let line = try CommandTranslator.requestLine(toolName: sample.0, arguments: arguments, requestID: "r")
+        switch try ProtocolCodec.decodeRequestLine(line, screens: testScreens).command {
+        case .circle(let circle): return circle.style
+        case .arrow(let arrow): return arrow.style
+        default: throw CommandTranslationError.unsupportedTool(sample.0)
+        }
+    }
+    #expect(try style(["style": .string("caption")]) == .caption)
+    #expect(try style([:]) == .card)
+    // A caption label leaves the mark's own colour alone — `color` is the loop's
+    // ink here, not just its words, so there is no `ink` default to apply.
+    let line = try CommandTranslator.requestLine(
+        toolName: sample.0,
+        arguments: sample.1.merging(["label": .string("x"), "style": .string("caption")]) { _, new in new },
+        requestID: "r")
+    switch try ProtocolCodec.decodeRequestLine(line, screens: testScreens).command {
+    case .circle(let circle): #expect(circle.color == .role(.accent))
+    case .arrow(let arrow): #expect(arrow.color == .role(.accent))
+    default: Issue.record("expected circle or arrow")
+    }
+}
+
+@Test("a bare caption gets near-white words, while a bare card keeps the teaching colour")
+func translatorDefaultsCaptionColorToInk() throws {
+    let base: [String: Value] = ["x": .int(10), "y": .int(10), "text": .string("take 3")]
+    func textCommand(_ extra: [String: Value]) throws -> TextCommand {
+        let line = try CommandTranslator.requestLine(toolName: "annotate_text",
+                                                     arguments: base.merging(extra) { _, new in new },
+                                                     requestID: "r")
+        guard case .text(let text) = try ProtocolCodec.decodeRequestLine(line, screens: testScreens).command
+        else { throw CommandTranslationError.unsupportedTool("text") }
+        return text
+    }
+    #expect(try textCommand(["style": .string("caption")]).color == .role(.ink))
+    #expect(try textCommand([:]).color == .role(.accent))
+    // An explicit colour always wins — the default is a default, not a policy.
+    #expect(try textCommand(["style": .string("caption"), "color": .string("warn")]).color == .role(.warn))
+    #expect(try textCommand(["style": .string("caption"), "color": .string("#101014")]).color
+            == .hex(HexColor(red: 0x10, green: 0x10, blue: 0x14)))
+}
+
 @Test("translator reports helpful errors for malformed arguments")
 func translatorRejectsMalformedArguments() {
     let badCalls: [(String, [String: Value], String)] = [
@@ -91,6 +159,13 @@ func translatorRejectsMalformedArguments() {
         ("annotate_circle", ["x": .int(1), "y": .int(2), "weight": .string("heavy")], "thin, regular, or bold"),
         ("annotate_arrow", ["toX": .int(1), "toY": .int(2), "weight": .int(2)], "thin, regular, or bold"),
         ("annotate_text", ["x": .int(1), "y": .int(2), "text": .string(String(repeating: "a", count: 301))], "300"),
+        // "subtitle" is what this style was called while it was still a plate.
+        ("annotate_text", ["x": .int(1), "y": .int(2), "text": .string("note"), "style": .string("subtitle")], "card or caption"),
+        ("annotate_text", ["x": .int(1), "y": .int(2), "text": .string("note"), "style": .int(1)], "card or caption"),
+        ("annotate_circle", ["x": .int(1), "y": .int(2), "style": .string("subtitle")], "card or caption"),
+        // Marks that cannot carry words have no style to set.
+        ("annotate_highlight", ["x": .int(1), "y": .int(2), "w": .int(3), "h": .int(4), "style": .string("caption")], "Unknown argument"),
+        ("annotate_underline", ["x": .int(1), "y": .int(2), "w": .int(3), "h": .int(4), "style": .string("caption")], "Unknown argument"),
         ("annotate_text", ["x": .int(1), "y": .int(2), "text": .string("note"), "norm": .bool(true)], "requires 'screen'"),
         ("annotate_clear", ["annotationId": .int(9)], "annotationId"),
         ("unknown", [:], "Unknown tool"),

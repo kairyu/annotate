@@ -234,7 +234,10 @@ final class OverlayEngine {
         for frame in frames {
             hitShapes.append(CGPath(rect: frame.insetBy(dx: -slop, dy: -slop).offsetBy(dx: origin.x, dy: origin.y), transform: nil))
         }
-        // A label plate is opaque, so every point inside it is the plate.
+        // A label plate is opaque, so every point inside it is the plate. A
+        // plate-less caption keeps the same frame deliberately: hovering the
+        // words is how you see what is under them, and its area is still what
+        // other plates must avoid.
         if let callout = (root as? FreshInkAnnotationLayer)?.calloutEffectView {
             hitShapes.append(CGPath(rect: callout.frame.insetBy(dx: -slop, dy: -slop).offsetBy(dx: origin.x, dy: origin.y), transform: nil))
         }

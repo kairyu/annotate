@@ -109,6 +109,58 @@ func strokeWeightMultiplierOrdering() {
     #expect(StrokeWeight.regular.multiplier == 1.0)
 }
 
+@Test("text decodes an explicit callout style", arguments: [
+    (#"{"id":"x","cmd":"text","at":{"x":20,"y":20},"text":"take 3","style":"caption"}"#, CalloutStyle.caption),
+    (#"{"id":"x","cmd":"text","at":{"x":20,"y":20},"text":"take 3","style":"card"}"#, CalloutStyle.card),
+])
+func textDecodesExplicitStyle(_ sample: (String, CalloutStyle)) throws {
+    guard case .text(let text) = try decode(sample.0).command else { Issue.record(); return }
+    #expect(text.style == sample.1)
+}
+
+@Test("a legacy line without a style key decodes to card (backward compatible)")
+func legacyLineWithoutStyleDecodesToCard() throws {
+    guard case .text(let text) = try decode(#"{"id":"x","cmd":"text","at":{"x":20,"y":20},"text":"note"}"#).command,
+          case .circle(let circle) = try decode(#"{"id":"y","cmd":"circle","target":{"x":20,"y":20},"label":"a"}"#).command,
+          case .arrow(let arrow) = try decode(#"{"id":"z","cmd":"arrow","to":{"x":20,"y":30},"label":"a"}"#).command
+    else { Issue.record(); return }
+    #expect(text.style == .card)
+    #expect(circle.style == .card)
+    #expect(arrow.style == .card)
+}
+
+@Test("a labelled circle and arrow round-trip the style key", arguments: [
+    RequestEnvelope(id: "c", command: .circle(CircleCommand(target: .point(Point(x: 20, y: 20)), label: "Join", style: .caption))),
+    RequestEnvelope(id: "a", command: .arrow(ArrowCommand(to: .point(Point(x: 20, y: 30)), label: "Join", style: .caption))),
+])
+func labelledMarksRoundTripStyle(_ envelope: RequestEnvelope) throws {
+    let line = try ProtocolCodec.encodeRequestLine(envelope)
+    #expect(try ProtocolCodec.decodeRequestLine(line, screens: protocolScreens) == envelope)
+    let object = try #require(JSONSerialization.jsonObject(with: line) as? [String: Any])
+    #expect(object["style"] as? String == "caption")
+}
+
+@Test("text round-trips the style key through encode/decode")
+func textRoundTripsStyle() throws {
+    let envelope = RequestEnvelope(id: "t", command: .text(TextCommand(at: Point(x: 20, y: 20), text: "take 3", style: .caption)))
+    let line = try ProtocolCodec.encodeRequestLine(envelope)
+    #expect(try ProtocolCodec.decodeRequestLine(line, screens: protocolScreens) == envelope)
+    // The style key is actually present on the wire.
+    let object = try #require(JSONSerialization.jsonObject(with: line) as? [String: Any])
+    #expect(object["style"] as? String == "caption")
+}
+
+@Test("an unknown style value is rejected before synthesis", arguments: [
+    "plate",
+    // The name this style carried while it was still a plate. Rejected, not
+    // quietly accepted: nothing shipped under it, and a silent alias would
+    // outlive everyone who remembers why it existed.
+    "subtitle",
+])
+func unknownStyleValueIsRejected(_ style: String) {
+    expectProtocolError(.invalidParameters, #"{"id":"x","cmd":"text","at":{"x":20,"y":20},"text":"note","style":"\#(style)"}"#)
+}
+
 @Test("unknown command gets its wire error")
 func unknownCommandGetsWireError() {
     expectProtocolError(.unknownCommand, #"{"id":"x","cmd":"scribble"}"#)
